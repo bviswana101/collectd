@@ -41,7 +41,6 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/select.h>
@@ -276,7 +275,6 @@ static void *uf_server_thread (void __attribute__((unused)) *arg)
     fd_set input_set;
     fd_set error_set;
     
-    struct timeval timeout;
     int select_error = 0;
 
     if (uf_open_fifo () != 0)
@@ -294,10 +292,7 @@ static void *uf_server_thread (void __attribute__((unused)) *arg)
         FD_ZERO(&error_set);
         FD_SET(fileno (fifo_fd), &error_set);
         
-        timeout.tv_sec = 10;
-        timeout.tv_usec = 0;
-        
-        status = select(fileno (fifo_fd) + 1, &input_set, NULL, &error_set, NULL /*&timeout*/);
+        status = select(fileno (fifo_fd) + 1, &input_set, NULL, &error_set, NULL);
 
         if (1 == should_shutdown)
         {
