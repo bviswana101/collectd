@@ -255,6 +255,11 @@ static int meta_data_to_json (char *buffer, size_t buffer_size, /* {{{ */
     offset += ((size_t) status); \
 } while (0)
 
+#define BUFFER_ADD_DOUBLE(key,value) do { \
+  if (isfinite(value)) \
+    BUFFER_ADD (",\"%s\":%f", key, value); \
+} while (0)
+
   keys_num = meta_data_toc (meta, &keys);
   if (keys_num == 0)
   {
@@ -295,7 +300,7 @@ static int meta_data_to_json (char *buffer, size_t buffer_size, /* {{{ */
     {
       double value = 0.0;
       if (meta_data_get_double (meta, key, &value) == 0)
-        BUFFER_ADD (",\"%s\":%f", key, value);
+        BUFFER_ADD_DOUBLE (key, value);
     }
     else if (type == MD_TYPE_BOOLEAN)
     {
@@ -315,6 +320,7 @@ static int meta_data_to_json (char *buffer, size_t buffer_size, /* {{{ */
   BUFFER_ADD ("}");
 
 #undef BUFFER_ADD
+#undef BUFFER_ADD_DOUBLE
 
   return (0);
 } /* }}} int meta_data_to_json */
@@ -501,32 +507,36 @@ static int notification_meta_data_to_json(char *buffer, size_t buffer_size, /* {
     offset += ((size_t) status); \
 } while (0)
 
-#define BUFFER_ADD_KEYVAL(meta) do { \
-  BUFFER_ADD (",\"%s\":", (meta->name)); \
-  if (meta->type == NM_TYPE_STRING) { \
-  status = json_escape_string (temp, sizeof (temp), (meta->nm_value.nm_string)); \
+#define BUFFER_ADD_DOUBLE(key,value) do { \
+  if (isfinite(value)) \
+    BUFFER_ADD (",\"%s\":%f", key, value); \
+} while (0)
+
+#define BUFFER_ADD_KEYVAL(key, value) do { \
+  status = json_escape_string (temp, sizeof (temp), (value)); \
   if (status != 0) \
     return (status); \
-  BUFFER_ADD ("%s", temp); \
- } else if (meta->type == NM_TYPE_SIGNED_INT) { \
-   BUFFER_ADD ( "%"PRIi64, meta->nm_value.nm_signed_int); \
- } else if (meta->type == NM_TYPE_UNSIGNED_INT) { \
-   BUFFER_ADD ( "%"PRIu64, meta->nm_value.nm_unsigned_int); \
- } else if (meta->type == NM_TYPE_DOUBLE) { \
-   BUFFER_ADD ( "%e", meta->nm_value.nm_double); \
- } else if (meta->type == NM_TYPE_BOOLEAN) { \
-   BUFFER_ADD ( "%s", meta->nm_value.nm_boolean?"true":"false"); \
-  } \
+  BUFFER_ADD (",\"%s\":%s", (key), temp); \
 } while (0)
 
   for (; meta != NULL; meta = meta->next) {
-    BUFFER_ADD_KEYVAL (meta);
+    if (meta->type == NM_TYPE_DOUBLE)
+      BUFFER_ADD_DOUBLE (meta->name, meta->nm_value.nm_double);
+    else if (meta->type == NM_TYPE_STRING)
+      BUFFER_ADD_KEYVAL (meta->name, meta->nm_value.nm_string);
+    else if (meta->type == NM_TYPE_SIGNED_INT) 
+        BUFFER_ADD (",\"%s\":%"PRIi64, meta->name, meta->nm_value.nm_signed_int);
+    else if (meta->type == NM_TYPE_UNSIGNED_INT) 
+        BUFFER_ADD (",\"%s\":%"PRIu64, meta->name, meta->nm_value.nm_unsigned_int);
+    else if (meta->type == NM_TYPE_BOOLEAN)
+        BUFFER_ADD (",\"%s\":%s", meta->name, meta->nm_value.nm_boolean ? "true" : "false");
   }
 
   buffer[0] = '{'; /* replace leading ',' */
   BUFFER_ADD ("}");
 
 #undef BUFFER_ADD_KEYVAL
+#undef BUFFER_ADD_DOUBLE
 #undef BUFFER_ADD
 
   return (0);
